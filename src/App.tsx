@@ -14,7 +14,7 @@ import MusicWidget from './components/MusicWidget';
 import BirthdayConfetti from './components/BirthdayConfetti';
 import ThiDashboard from './components/ThiDashboard';
 import { Send, User, ChevronRight, Users, Plus, Trash2, LayoutDashboard, Home, LogOut } from 'lucide-react';
-import { auth, db, loginWithGoogle, logout, OperationType, handleFirestoreError } from './firebase';
+import { auth, db, loginWithGoogle, loginAnonymously, logout, OperationType, handleFirestoreError } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   collection, 
@@ -52,9 +52,10 @@ export default function App() {
       if (user) {
         setIsLogged(true);
         // If we don't have a username yet but user logged in, use their display name
-        if (!userName && user.displayName) {
-           setUserName(user.displayName);
-           localStorage.setItem('party_userName', user.displayName);
+        if (!userName && (user.displayName || user.isAnonymous)) {
+           const finalName = user.displayName || localStorage.getItem('party_userName') || 'Party Guest';
+           setUserName(finalName);
+           localStorage.setItem('party_userName', finalName);
         }
       } else {
         setIsLogged(false);
@@ -106,13 +107,15 @@ export default function App() {
     } catch (error: any) {
       console.error("Login failed:", error);
       if (error?.code === 'auth/admin-restricted-operation') {
-        setError("Vui lòng bật Anonymous Auth hoặc dùng Google Login.");
+        setError("Lỗi: Bạn chưa bật 'Anonymous Auth' hoặc 'Google Login' trong Firebase Console.");
+      } else if (error?.code === 'auth/unauthorized-domain') {
+        setError("Lỗi Domain (Authorized Domains). Hãy Copy domain hiện tại và dán vào tab Settings -> Authorized domains trong Firebase Auth nhé!");
       } else if (error?.code === 'auth/popup-blocked') {
-        setError("Trình duyệt chặn Pop-up rồi! Bạn hãy cho phép pop-up để đăng nhập nhé.");
+        setError("Trình duyệt chặn Pop-up rồi! Hãy cho phép pop-up để đăng nhập.");
       } else if (error?.code === 'auth/cancelled-popup-request') {
         setError("Bạn đã đóng cửa sổ đăng nhập.");
       } else {
-        setError("Đăng nhập thất bại. Bạn thử lại xem sao!");
+        setError("Đăng nhập thất bại: " + (error?.message || "Lỗi không xác định"));
       }
     } finally {
       setIsLoggingIn(false);
@@ -205,6 +208,32 @@ export default function App() {
                   {isLoggingIn ? 'ĐANG VÀO...' : 'VÀO PARTYYY'} <ChevronRight strokeWidth={4} size={20} />
                 </motion.button>
               </form>
+
+              <div className="mt-6 flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-[2px] flex-1 bg-black/10"></div>
+                  <span className="text-[10px] font-black text-gray-400 uppercase italic">Hoặc</span>
+                  <div className="h-[2px] flex-1 bg-black/10"></div>
+                </div>
+                
+                <button 
+                  onClick={async () => {
+                    setIsLoggingIn(true);
+                    setError(null);
+                    try {
+                      await loginAnonymously();
+                    } catch (e: any) {
+                      console.error(e);
+                      setError("Lỗi: Bạn chưa bật 'Anonymous Auth' trong Firebase Console.");
+                    } finally {
+                      setIsLoggingIn(false);
+                    }
+                  }}
+                  className="w-full bg-white text-black py-4 rounded-2xl font-black text-sm border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-gray-50 transition-all uppercase italic"
+                >
+                  VÀO NHANH (KHÁCH)
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         ) : (
