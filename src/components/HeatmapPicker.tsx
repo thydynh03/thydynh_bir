@@ -54,7 +54,8 @@ export default function HeatmapPicker({ currentUser }: HeatmapPickerProps) {
   }, []);
 
   const handleVote = async (day: string, hour: string) => {
-    const key = `${WEEKS[currentWeek]}-${day}-${hour}`;
+    const rawKey = `${WEEKS[currentWeek]}-${day}-${hour}`;
+    const key = rawKey.replace(/\//g, '-');
     const currentVoters = votes[key]?.voters || [];
     const hasVoted = currentVoters.includes(currentUser);
     
@@ -160,7 +161,8 @@ export default function HeatmapPicker({ currentUser }: HeatmapPickerProps) {
               {day}
             </div>
             {HOURS.map(hour => {
-              const key = `${WEEKS[currentWeek]}-${day}-${hour}`;
+              const rawKey = `${WEEKS[currentWeek]}-${day}-${hour}`;
+              const key = rawKey.replace(/\//g, '-');
               const vote = votes[key];
               const voters = vote?.voters || [];
               const count = voters.length;
