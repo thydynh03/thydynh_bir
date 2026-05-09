@@ -13,8 +13,8 @@ import BudgetTracker from './components/BudgetTracker';
 import MusicWidget from './components/MusicWidget';
 import BirthdayConfetti from './components/BirthdayConfetti';
 import ThiDashboard from './components/ThiDashboard';
-import { Send, User, ChevronRight, Users, Plus, Trash2, LayoutDashboard, Home } from 'lucide-react';
-import { auth, db, loginAnonymously, OperationType, handleFirestoreError } from './firebase';
+import { Send, User, ChevronRight, Users, Plus, Trash2, LayoutDashboard, Home, LogOut } from 'lucide-react';
+import { auth, db, loginWithGoogle, logout, OperationType, handleFirestoreError } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   collection, 
@@ -36,7 +36,9 @@ interface Member {
 export default function App() {
   const [userName, setUserName] = useState(() => localStorage.getItem('party_userName') || '');
   const [isLogged, setIsLogged] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'home' | 'dashboard'>('home');
   const [tempName, setTempName] = useState('');
   const [budget, setBudget] = useState(1700000);
@@ -49,13 +51,18 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setIsLogged(true);
+        // If we don't have a username yet but user logged in, use their display name
+        if (!userName && user.displayName) {
+           setUserName(user.displayName);
+           localStorage.setItem('party_userName', user.displayName);
+        }
       } else {
         setIsLogged(false);
       }
       setAuthReady(true);
     });
     return () => unsubscribe();
-  }, []);
+  }, [userName]);
 
   // Sync Members
   useEffect(() => {
@@ -86,14 +93,29 @@ export default function App() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tempName.trim()) {
-      try {
-        await loginAnonymously();
-        setUserName(tempName);
-        localStorage.setItem('party_userName', tempName);
-      } catch (error) {
-        console.error("Login failed:", error);
+    if (isLoggingIn) return;
+    
+    setIsLoggingIn(true);
+    setError(null);
+    try {
+      const result = await loginWithGoogle();
+      const user = result.user;
+      const finalName = tempName || user.displayName || 'Party Guest';
+      setUserName(finalName);
+      localStorage.setItem('party_userName', finalName);
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      if (error?.code === 'auth/admin-restricted-operation') {
+        setError("Vui lòng bật Anonymous Auth hoặc dùng Google Login.");
+      } else if (error?.code === 'auth/popup-blocked') {
+        setError("Trình duyệt chặn Pop-up rồi! Bạn hãy cho phép pop-up để đăng nhập nhé.");
+      } else if (error?.code === 'auth/cancelled-popup-request') {
+        setError("Bạn đã đóng cửa sổ đăng nhập.");
+      } else {
+        setError("Đăng nhập thất bại. Bạn thử lại xem sao!");
       }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -155,6 +177,12 @@ export default function App() {
                 <p className="font-bold text-gray-400 uppercase tracking-widest text-[8px]">NHẬP TÊN ĐỂ QUẨY CÙNG ĐỒNG BỌN NÈ!</p>
               </div>
               
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border-2 border-red-500 rounded-xl text-red-600 text-xs font-bold uppercase text-center">
+                  {error}
+                </div>
+              )}
+              
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="relative">
                   <input 
@@ -168,12 +196,13 @@ export default function App() {
                 </div>
                 
                 <motion.button 
-                  whileHover={{ y: -4, shadow: "0px 10px 0px 0px rgba(0,0,0,1)" }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={!isLoggingIn ? { y: -4, shadow: "0px 10px 0px 0px rgba(0,0,0,1)" } : {}}
+                  whileTap={!isLoggingIn ? { scale: 0.98 } : {}}
                   type="submit"
-                  className="w-full bg-black text-white py-5 rounded-2xl font-[900] text-xl border-4 border-black shadow-[0px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-3 uppercase italic tracking-tight"
+                  disabled={isLoggingIn}
+                  className={`w-full bg-black text-white py-5 rounded-2xl font-[900] text-xl border-4 border-black shadow-[0px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-3 uppercase italic tracking-tight ${isLoggingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  VÀO PARTYYY <ChevronRight strokeWidth={4} size={20} />
+                  {isLoggingIn ? 'ĐANG VÀO...' : 'VÀO PARTYYY'} <ChevronRight strokeWidth={4} size={20} />
                 </motion.button>
               </form>
             </motion.div>
@@ -222,6 +251,13 @@ export default function App() {
                       <User size={16} />
                    </div>
                    <span className="font-black uppercase tracking-tighter italic">Hi, {userName}!</span>
+                   <button 
+                    onClick={() => logout()}
+                    className="ml-2 p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"
+                    title="Đăng xuất"
+                   >
+                     <LogOut size={16} />
+                   </button>
                 </div>
                 <div className="flex items-center gap-4 bg-white border-4 border-black px-6 py-3 rounded-full shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] group">
                   <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>

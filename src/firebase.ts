@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -7,8 +7,10 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
-// For this fun app, we'll use anonymous auth to keep it simple but secured with rules
-export const loginAnonymously = () => signInAnonymously(auth);
+const googleProvider = new GoogleAuthProvider();
+
+export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const logout = () => auth.signOut();
 
 export enum OperationType {
   CREATE = 'create',
