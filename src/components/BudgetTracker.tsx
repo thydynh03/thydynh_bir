@@ -3,8 +3,8 @@ import { motion } from 'motion/react';
 import { PlusCircle } from 'lucide-react';
 
 export default function BudgetTracker() {
-  const [currentBudget, setCurrentBudget] = useState(1500000);
-  const target = 2000000;
+  const [currentBudget, setCurrentBudget] = useState(1700000);
+  const target = 5000000;
   const percentage = Math.min((currentBudget / target) * 100, 100);
 
   const [contribution, setContribution] = useState('');

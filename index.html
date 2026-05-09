@@ -3,6 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var descriptor = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'fetch');
+          if (descriptor && descriptor.configurable !== false) {
+            var originalFetch = window.fetch;
+            Object.defineProperty(window, 'fetch', {
+              get: function() { return originalFetch; },
+              set: function(v) { 
+                console.warn('Early Polyfill: Blocked window.fetch override');
+              },
+              configurable: true,
+              enumerable: true
+            });
+            console.log('Early Polyfill: window.fetch silencer installed');
+          }
+        } catch (e) {
+          console.error('Early Polyfill failed', e);
+        }
+      })();
+    </script>
     <title>My Google AI Studio App</title>
   </head>
   <body>

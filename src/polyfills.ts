@@ -3,15 +3,32 @@
  */
 if (typeof window !== 'undefined') {
   try {
-    const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
-    if (descriptor && !descriptor.writable && !descriptor.set) {
-      console.log('Detected read-only fetch getter, providing bypass if needed');
-      // Some libraries try to polyfill fetch by assignment.
-      // We can't fix the assignment if it's a getter-only property on Window.
-      // But we can try to make it configurable if it's not.
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'fetch');
+    
+    if (descriptor) {
+      const originalFetch = window.fetch;
+      
+      if (descriptor.configurable === false) {
+        console.warn('Polyfill: window.fetch is NOT configurable. We cannot define a setter to silence the error.');
+      } else {
+        // Define a getter/setter combo. The setter will swallow assignments to avoid the "has only a getter" error.
+        try {
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return originalFetch; },
+            set: function(v) { 
+              console.warn('Polyfill: Blocked an attempt to overwrite window.fetch. This assignment was ignored to prevent a TypeError.');
+            },
+            configurable: true,
+            enumerable: true
+          });
+          console.log('Polyfill: window.fetch proxy setter installed successfully');
+        } catch (defineError) {
+          console.error('Polyfill: defineProperty failed', defineError);
+        }
+      }
     }
   } catch (e) {
-    console.error('Polyfill check failed', e);
+    console.error('Polyfill check/fix failed', e);
   }
 }
 
