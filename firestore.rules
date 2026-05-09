@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidString(val, min, max) {
+      return val is string && val.size() >= min && val.size() <= max;
+    }
+
+    // --- Global Config ---
+    match /config/main {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isValidConfig(incoming());
+
+      function isValidConfig(data) {
+        return data.keys().hasAll(['budget', 'targetBudget']) &&
+               data.keys().size() == 2 &&
+               data.budget is number &&
+               data.targetBudget is number;
+      }
+    }
+
+    // --- Members ---
+    match /members/{memberId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidMember(incoming());
+      allow delete: if isSignedIn();
+
+      function isValidMember(data) {
+        return data.keys().hasAll(['name']) &&
+               data.keys().size() == 1 &&
+               isValidString(data.name, 1, 50);
+      }
+    }
+
+    // --- Votes ---
+    match /votes/{voteId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidVote(incoming());
+      allow delete: if isSignedIn();
+
+      function isValidVote(data) {
+        return data.keys().hasAll(['voters', 'loc']) &&
+               data.keys().size() == 2 &&
+               data.voters is list &&
+               data.voters.size() <= 100 &&
+               isValidString(data.loc, 1, 100);
+      }
+    }
+
+    // --- Notes ---
+    match /notes/{noteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidNote(incoming());
+      allow delete: if isSignedIn();
+
+      function isValidNote(data) {
+        return data.keys().hasAll(['text', 'color', 'rotation', 'createdAt']) &&
+               data.keys().size() == 4 &&
+               isValidString(data.text, 1, 280) &&
+               isValidString(data.color, 4, 7) &&
+               data.rotation is number &&
+               data.createdAt is string; // using string for now as app uses ISO
+      }
+    }
+  }
+}

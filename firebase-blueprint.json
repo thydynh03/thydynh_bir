@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "GlobalConfig": {
+      "title": "Global Configuration",
+      "description": "App-wide configuration and budget status",
+      "type": "object",
+      "properties": {
+        "budget": { "type": "number" },
+        "targetBudget": { "type": "number" }
+      },
+      "required": ["budget", "targetBudget"]
+    },
+    "Member": {
+      "title": "Team Member",
+      "description": "A member of the party squad",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Vote": {
+      "title": "Heatmap Vote",
+      "description": "Votes for a specific time slot",
+      "type": "object",
+      "properties": {
+        "voters": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "loc": { "type": "string" }
+      },
+      "required": ["voters", "loc"]
+    },
+    "Note": {
+      "title": "Sticky Note",
+      "description": "A vibe note shared by users",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "color": { "type": "string" },
+        "rotation": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "color", "rotation", "createdAt"]
+    }
+  },
+  "firestore": {
+    "config/main": {
+      "schema": "GlobalConfig",
+      "description": "Main application configuration"
+    },
+    "members": {
+      "schema": "Member",
+      "description": "Collection of team members"
+    },
+    "votes": {
+      "schema": "Vote",
+      "description": "Collection of heatmap votes"
+    },
+    "notes": {
+      "schema": "Note",
+      "description": "Collection of vibe sticky notes"
+    }
+  }
+}

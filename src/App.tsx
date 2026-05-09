@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Hero from './components/Hero';
 import LocationShowcase from './components/LocationShowcase';
@@ -14,6 +14,19 @@ import MusicWidget from './components/MusicWidget';
 import BirthdayConfetti from './components/BirthdayConfetti';
 import ThiDashboard from './components/ThiDashboard';
 import { Send, User, ChevronRight, Users, Plus, Trash2, LayoutDashboard, Home } from 'lucide-react';
+import { auth, db, loginAnonymously, OperationType, handleFirestoreError } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  setDoc, 
+  updateDoc,
+  query,
+  orderBy
+} from 'firebase/firestore';
 
 interface Member {
   id: string;
@@ -21,36 +34,99 @@ interface Member {
 }
 
 export default function App() {
-  const [userName, setUserName] = useState('');
+  const [userName, setUserName] = useState(() => localStorage.getItem('party_userName') || '');
   const [isLogged, setIsLogged] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [activeView, setActiveView] = useState<'home' | 'dashboard'>('home');
   const [tempName, setTempName] = useState('');
   const [budget, setBudget] = useState(1700000);
-  const [members, setMembers] = useState<Member[]>([
-    { id: '1', name: 'Thi (Boss)' },
-    { id: '2', name: 'Hoàng Anh' },
-    { id: '3', name: 'Khôi' }
-  ]);
+  const [targetBudget, setTargetBudget] = useState(5000000);
+  const [members, setMembers] = useState<Member[]>([]);
   const [newMemberName, setNewMemberName] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Handle Firebase Auth
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsLogged(true);
+      } else {
+        setIsLogged(false);
+      }
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync Members
+  useEffect(() => {
+    if (!isLogged) return;
+    const unsub = onSnapshot(collection(db, 'members'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
+      setMembers(data);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'members'));
+    return () => unsub();
+  }, [isLogged]);
+
+  // Sync Global Config (Budget)
+  useEffect(() => {
+    if (!isLogged) return;
+    const unsub = onSnapshot(doc(db, 'config', 'main'), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setBudget(data.budget);
+        setTargetBudget(data.targetBudget);
+      } else {
+        // Initialize if not exists
+        setDoc(doc(db, 'config', 'main'), { budget: 1700000, targetBudget: 5000000 })
+          .catch(err => handleFirestoreError(err, OperationType.CREATE, 'config/main'));
+      }
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'config/main'));
+    return () => unsub();
+  }, [isLogged]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (tempName.trim()) {
-      setUserName(tempName);
-      setIsLogged(true);
+      try {
+        await loginAnonymously();
+        setUserName(tempName);
+        localStorage.setItem('party_userName', tempName);
+      } catch (error) {
+        console.error("Login failed:", error);
+      }
     }
   };
 
-  const addMember = () => {
+  const addMember = async () => {
     if (newMemberName.trim()) {
-      setMembers([...members, { id: Date.now().toString(), name: newMemberName.trim() }]);
-      setNewMemberName('');
+      try {
+        await addDoc(collection(db, 'members'), { name: newMemberName.trim() });
+        setNewMemberName('');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'members');
+      }
     }
   };
 
-  const removeMember = (id: string) => {
-    setMembers(members.filter(m => m.id !== id));
+  const removeMember = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'members', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `members/${id}`);
+    }
   };
+
+  const handleUpdateBudget = async (amount: number) => {
+    try {
+      await updateDoc(doc(db, 'config', 'main'), {
+        budget: budget + amount
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'config/main');
+    }
+  };
+
+  if (!authReady) return null;
 
   return (
     <div className="min-h-screen bg-[#f9fafb] font-sans text-[#1a1a1a] selection:bg-[#FF6B00] selection:text-white pb-20 p-6 overflow-x-hidden">
@@ -64,38 +140,40 @@ export default function App() {
             className="fixed inset-0 z-[100] bg-[#FF6B00] flex items-center justify-center p-6"
           >
             <motion.div 
-              initial={{ scale: 0.9, rotate: -2 }}
-              animate={{ scale: 1, rotate: 0 }}
-              className="bg-white border-8 border-black p-10 rounded-[3rem] shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] max-w-md w-full"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="bg-white border-[6px] border-black p-8 rounded-[2.5rem] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] max-w-[340px] w-full"
             >
-              <div className="flex justify-center mb-8">
-                <div className="w-20 h-20 bg-black rounded-3xl flex items-center justify-center text-white text-5xl font-black italic">
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center text-white text-4xl font-black italic">
                   F
                 </div>
               </div>
-              <h1 className="text-4xl font-black italic uppercase text-center mb-2 tracking-tighter">WHAT'S YOUR NAME?</h1>
-              <p className="text-center font-bold text-gray-400 mb-8 uppercase tracking-widest text-[10px]">Nhập tên để quẩy cùng đồng bọn nè!</p>
+              
+              <div className="text-center mb-8">
+                <h1 className="text-[2.5rem] leading-[0.9] font-[900] italic uppercase tracking-tighter mb-2">WHAT'S YOUR NAME?</h1>
+                <p className="font-bold text-gray-400 uppercase tracking-widest text-[8px]">NHẬP TÊN ĐỂ QUẨY CÙNG ĐỒNG BỌN NÈ!</p>
+              </div>
               
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={24} />
                   <input 
                     autoFocus
                     type="text" 
                     value={tempName}
                     onChange={(e) => setTempName(e.target.value)}
-                    placeholder="Tên của bạn..."
-                    className="w-full bg-gray-100 border-4 border-black rounded-2xl py-4 pl-14 pr-6 font-black text-xl focus:outline-none focus:ring-4 ring-[#00FF00]/30"
+                    placeholder="Thi"
+                    className="w-full bg-gray-50 border-[3.5px] border-black rounded-2xl py-4 px-6 font-[900] text-xl focus:outline-none placeholder:text-gray-300"
                   />
                 </div>
                 
                 <motion.button 
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ y: -4, shadow: "0px 10px 0px 0px rgba(0,0,0,1)" }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
-                  className="w-full bg-black text-white py-5 rounded-2xl font-black text-2xl border-4 border-transparent hover:border-[#00FF00] transition-colors flex items-center justify-center gap-3 group"
+                  className="w-full bg-black text-white py-5 rounded-2xl font-[900] text-xl border-4 border-black shadow-[0px_6px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-3 uppercase italic tracking-tight"
                 >
-                  VÀO PARTYYY <ChevronRight className="group-hover:translate-x-2 transition-transform" strokeWidth={3} />
+                  VÀO PARTYYY <ChevronRight strokeWidth={4} size={20} />
                 </motion.button>
               </form>
             </motion.div>
@@ -223,13 +301,13 @@ export default function App() {
                     </div>
 
                     <div className="lg:col-span-8 lg:row-span-2">
-                      <HeatmapPicker />
+                      <HeatmapPicker currentUser={userName} />
                     </div>
                     <div className="lg:col-span-4 lg:row-span-1">
                       <LocationShowcase />
                     </div>
                     <div className="lg:col-span-4 lg:row-span-1">
-                       <BudgetTracker currentBudget={budget} onAdd={(amt) => setBudget(prev => prev + amt)} />
+                       <BudgetTracker currentBudget={budget} onAdd={handleUpdateBudget} />
                     </div>
                     <div className="lg:col-span-4 lg:row-span-1">
                       <MusicWidget />

@@ -1,30 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, X } from 'lucide-react';
 import { StickyNote } from '../types.ts';
+import { db, OperationType, handleFirestoreError } from '../firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  doc,
+  query,
+  orderBy
+} from 'firebase/firestore';
 
 const COLORS = ['#FFD54F', '#4FC3F7', '#81C784', '#FF8A65', '#BA68C8'];
 
 export default function AddYourVibe() {
-  const [notes, setNotes] = useState<StickyNote[]>([
-    { id: '1', text: 'Mì Quảng Bà Mua sau khi đi Vin!', color: '#FFD700', rotation: -2 },
-  ]);
+  const [notes, setNotes] = useState<StickyNote[]>([]);
   const [inputText, setInputText] = useState('');
 
-  const addNote = () => {
+  useEffect(() => {
+    const q = query(collection(db, 'notes'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      } as StickyNote));
+      setNotes(data);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notes'));
+    return () => unsub();
+  }, []);
+
+  const addNote = async () => {
     if (!inputText.trim()) return;
-    const newNote: StickyNote = {
-      id: Date.now().toString(),
-      text: inputText,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-      rotation: Math.random() * 8 - 4
-    };
-    setNotes([newNote, ...notes]);
-    setInputText('');
+    try {
+      await addDoc(collection(db, 'notes'), {
+        text: inputText,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        rotation: Math.random() * 8 - 4,
+        createdAt: new Date().toISOString()
+      });
+      setInputText('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'notes');
+    }
   };
 
-  const removeNote = (id: string) => {
-    setNotes(notes.filter(n => n.id !== id));
+  const removeNote = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'notes', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `notes/${id}`);
+    }
   };
 
   return (

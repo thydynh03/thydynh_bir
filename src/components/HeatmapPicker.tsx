@@ -1,15 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { db, OperationType, handleFirestoreError } from '../firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc,
+  writeBatch
+} from 'firebase/firestore';
 
 const DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const HOURS = ['08h', '10h', '12h', '14h', '16h', '18h', '20h', '22h'];
 
 const generateWeeks = () => {
   const weeks = [];
-  const now = new Date(); // In production, this will be the user's current date
+  const now = new Date(); 
   const day = now.getDay();
-  // Get Monday of current week
   const diff = now.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(now.setDate(diff));
 
@@ -25,20 +33,72 @@ const generateWeeks = () => {
 
 const WEEKS = generateWeeks();
 
-export default function HeatmapPicker() {
-  const [votes, setVotes] = useState<Record<string, { count: number; loc: string }>>({});
+interface HeatmapPickerProps {
+  currentUser: string;
+}
+
+export default function HeatmapPicker({ currentUser }: HeatmapPickerProps) {
+  const [votes, setVotes] = useState<Record<string, { voters: string[]; loc: string }>>({});
   const [currentWeek, setCurrentWeek] = useState(0);
   const [activeTab, setActiveTab] = useState<'VinWonders' | 'Camping'>('VinWonders');
 
-  const handleVote = (day: string, hour: string) => {
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'votes'), (snapshot) => {
+      const data: Record<string, { voters: string[]; loc: string }> = {};
+      snapshot.forEach(doc => {
+        data[doc.id] = doc.data() as { voters: string[]; loc: string };
+      });
+      setVotes(data);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'votes'));
+    return () => unsub();
+  }, []);
+
+  const handleVote = async (day: string, hour: string) => {
     const key = `${WEEKS[currentWeek]}-${day}-${hour}`;
-    setVotes(prev => ({
-      ...prev,
-      [key]: {
-        count: (prev[key]?.count || 0) + 1,
-        loc: activeTab
+    const currentVoters = votes[key]?.voters || [];
+    const hasVoted = currentVoters.includes(currentUser);
+    
+    const newVoters = hasVoted 
+      ? currentVoters.filter(v => v !== currentUser)
+      : [...currentVoters, currentUser];
+
+    try {
+      if (newVoters.length === 0) {
+        await deleteDoc(doc(db, 'votes', key));
+      } else {
+        await setDoc(doc(db, 'votes', key), {
+          voters: newVoters,
+          loc: activeTab
+        });
       }
-    }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `votes/${key}`);
+    }
+  };
+
+  const resetMyVotes = async () => {
+    const batch = writeBatch(db);
+    let count = 0;
+    
+    Object.keys(votes).forEach(key => {
+      const filteredVoters = votes[key].voters.filter(v => v !== currentUser);
+      if (filteredVoters.length !== votes[key].voters.length) {
+        if (filteredVoters.length === 0) {
+          batch.delete(doc(db, 'votes', key));
+        } else {
+          batch.update(doc(db, 'votes', key), { voters: filteredVoters });
+        }
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      try {
+        await batch.commit();
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, 'votes_batch_reset');
+      }
+    }
   };
 
   const nextWeek = () => setCurrentWeek(prev => (prev + 1) % WEEKS.length);
@@ -66,14 +126,22 @@ export default function HeatmapPicker() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2 bg-gray-100 border-2 border-black rounded-xl p-1 shrink-0">
-          <button onClick={prevWeek} className="p-1 hover:bg-black hover:text-white rounded-lg transition-colors">
-            <ChevronLeft size={16} />
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={resetMyVotes}
+            className="text-[9px] font-black uppercase px-3 py-1.5 bg-red-50 text-red-600 border-2 border-red-200 rounded-lg hover:bg-red-500 hover:text-white hover:border-red-600 transition-all"
+          >
+            Hủy ngày của tôi
           </button>
-          <span className="font-black text-[10px] uppercase min-w-[60px] text-center">{WEEKS[currentWeek]}</span>
-          <button onClick={nextWeek} className="p-1 hover:bg-black hover:text-white rounded-lg transition-colors">
-            <ChevronRight size={16} />
-          </button>
+          <div className="flex items-center gap-2 bg-gray-100 border-2 border-black rounded-xl p-1 shrink-0">
+            <button onClick={prevWeek} className="p-1 hover:bg-black hover:text-white rounded-lg transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-black text-[10px] uppercase min-w-[60px] text-center">{WEEKS[currentWeek]}</span>
+            <button onClick={nextWeek} className="p-1 hover:bg-black hover:text-white rounded-lg transition-colors">
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
       
@@ -94,7 +162,9 @@ export default function HeatmapPicker() {
             {HOURS.map(hour => {
               const key = `${WEEKS[currentWeek]}-${day}-${hour}`;
               const vote = votes[key];
-              const count = vote?.count || 0;
+              const voters = vote?.voters || [];
+              const count = voters.length;
+              const hasVoted = voters.includes(currentUser);
               const loc = vote?.loc;
               
               return (
@@ -109,15 +179,17 @@ export default function HeatmapPicker() {
                   animate={{ 
                     backgroundColor: count === 0 ? '#f9fafb' : (loc === 'VinWonders' ? '#FF6B00' : '#00FF00'),
                     opacity: count === 0 ? 1 : Math.min(0.4 + (count * 0.1), 1),
+                    borderWidth: hasVoted ? '3px' : '1px',
+                    borderColor: hasVoted ? '#000000' : 'rgba(0,0,0,0.1)'
                   }}
-                  className="h-8 border border-black/10 rounded shadow-sm cursor-pointer relative group flex items-center justify-center"
+                  className="h-8 rounded shadow-sm cursor-pointer relative group flex items-center justify-center"
                 >
                    <AnimatePresence>
                     {count > 0 && (
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.5 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="text-[8px] font-black pointer-events-none"
+                        className={`text-[8px] font-black pointer-events-none ${hasVoted ? 'text-white' : ''}`}
                       >
                         {count}
                       </motion.div>
@@ -129,6 +201,7 @@ export default function HeatmapPicker() {
           </div>
         ))}
       </div>
+
       
       <div className="mt-4 flex items-center justify-between">
         <p className="text-[10px] font-bold italic text-gray-500 uppercase tracking-wider">
