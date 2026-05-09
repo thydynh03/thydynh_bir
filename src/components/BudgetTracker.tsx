@@ -2,8 +2,12 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { PlusCircle } from 'lucide-react';
 
-export default function BudgetTracker() {
-  const [currentBudget, setCurrentBudget] = useState(1700000);
+interface BudgetTrackerProps {
+  currentBudget: number;
+  onAdd: (amount: number) => void;
+}
+
+export default function BudgetTracker({ currentBudget, onAdd }: BudgetTrackerProps) {
   const target = 5000000;
   const percentage = Math.min((currentBudget / target) * 100, 100);
 
@@ -12,7 +16,7 @@ export default function BudgetTracker() {
   const handleAdd = () => {
     const val = parseInt(contribution);
     if (!isNaN(val) && val > 0) {
-      setCurrentBudget(prev => prev + val);
+      onAdd(val);
       setContribution('');
     }
   };

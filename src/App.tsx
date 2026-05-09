@@ -12,7 +12,8 @@ import AddYourVibe from './components/AddYourVibe';
 import BudgetTracker from './components/BudgetTracker';
 import MusicWidget from './components/MusicWidget';
 import BirthdayConfetti from './components/BirthdayConfetti';
-import { Send, User, ChevronRight, Users, Plus, Trash2 } from 'lucide-react';
+import ThiDashboard from './components/ThiDashboard';
+import { Send, User, ChevronRight, Users, Plus, Trash2, LayoutDashboard, Home } from 'lucide-react';
 
 interface Member {
   id: string;
@@ -22,7 +23,9 @@ interface Member {
 export default function App() {
   const [userName, setUserName] = useState('');
   const [isLogged, setIsLogged] = useState(false);
+  const [activeView, setActiveView] = useState<'home' | 'dashboard'>('home');
   const [tempName, setTempName] = useState('');
+  const [budget, setBudget] = useState(1700000);
   const [members, setMembers] = useState<Member[]>([
     { id: '1', name: 'Thi (Boss)' },
     { id: '2', name: 'Hoàng Anh' },
@@ -114,6 +117,28 @@ export default function App() {
               </div>
               
               <div className="flex items-center gap-4">
+                <div className="flex bg-gray-100 p-1 border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <button 
+                    onClick={() => setActiveView('home')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                      activeView === 'home' ? 'bg-black text-white' : 'hover:bg-gray-200'
+                    }`}
+                  >
+                    <Home size={18} strokeWidth={3} />
+                    <span className="font-black text-xs uppercase tracking-tighter italic">PARTY</span>
+                  </button>
+
+                  <button 
+                    onClick={() => setActiveView('dashboard')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                      activeView === 'dashboard' ? 'bg-[#FF6B00] text-white' : 'hover:bg-gray-200'
+                    }`}
+                  >
+                    <LayoutDashboard size={18} strokeWidth={3} />
+                    <span className="font-black text-xs uppercase tracking-tighter italic">DASHBOARD</span>
+                  </button>
+                </div>
+
                 <div className="hidden md:flex items-center gap-3 bg-white border-4 border-black px-6 py-3 rounded-full shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
                    <div className="w-8 h-8 bg-[#00FF00] rounded-full border-2 border-black flex items-center justify-center">
                       <User size={16} />
@@ -128,100 +153,122 @@ export default function App() {
             </header>
 
             <main className="max-w-7xl mx-auto">
-              {/* Bento Grid Layout (12 columns) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-auto">
-                <div className="lg:col-span-8 lg:row-span-2">
-                  <Hero />
-                </div>
-                <div className="lg:col-span-4 lg:row-span-3">
-                  <div className="h-full border-4 border-black p-6 rounded-3xl bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Users className="text-[#FF6B00]" size={24} />
-                      <h3 className="font-black text-2xl uppercase tracking-tighter italic">TEAM MEMBERS</h3>
+              <AnimatePresence mode="wait">
+                {activeView === 'home' ? (
+                  <motion.div 
+                    key="home-grid"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="grid grid-cols-1 lg:grid-cols-12 gap-6 auto-rows-auto"
+                  >
+                    <div className="lg:col-span-8 lg:row-span-2">
+                      <Hero />
                     </div>
-                    
-                    <div className="flex gap-2 mb-6">
-                      <input 
-                        type="text" 
-                        value={newMemberName}
-                        onChange={(e) => setNewMemberName(e.target.value)}
-                        placeholder="Thêm thành viên..."
-                        className="flex-1 px-3 py-2 bg-gray-50 border-2 border-black rounded-lg font-bold text-sm"
-                        onKeyDown={(e) => e.key === 'Enter' && addMember()}
-                      />
-                      <button 
-                        onClick={addMember}
-                        className="p-2 bg-black text-white border-2 border-black rounded-lg hover:bg-[#00FF00] hover:text-black transition-colors"
-                      >
-                        <Plus size={20} strokeWidth={3} />
-                      </button>
-                    </div>
-
-                    <div className="flex-1 space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
-                      <AnimatePresence initial={false}>
-                        {members.map((member) => (
-                          <motion.div 
-                            key={member.id}
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 20, opacity: 0 }}
-                            className="group flex items-center justify-between p-3 bg-gray-50 border-2 border-black rounded-xl hover:bg-[#FFF0E0] transition-colors"
+                    <div className="lg:col-span-4 lg:row-span-3">
+                      <div className="h-full border-4 border-black p-6 rounded-3xl bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Users className="text-[#FF6B00]" size={24} />
+                          <h3 className="font-black text-2xl uppercase tracking-tighter italic">TEAM MEMBERS</h3>
+                        </div>
+                        
+                        <div className="flex gap-2 mb-6">
+                          <input 
+                            type="text" 
+                            value={newMemberName}
+                            onChange={(e) => setNewMemberName(e.target.value)}
+                            placeholder="Thêm thành viên..."
+                            className="flex-1 px-3 py-2 bg-gray-50 border-2 border-black rounded-lg font-bold text-sm"
+                            onKeyDown={(e) => e.key === 'Enter' && addMember()}
+                          />
+                          <button 
+                            onClick={addMember}
+                            className="p-2 bg-black text-white border-2 border-black rounded-lg hover:bg-[#00FF00] hover:text-black transition-colors"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-black text-xs">
-                                {member.name.charAt(0).toUpperCase()}
-                              </div>
-                              <span className="font-black uppercase tracking-tight text-sm">{member.name}</span>
-                            </div>
-                            <button 
-                              onClick={() => removeMember(member.id)}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                    
-                    <div className="mt-6 pt-4 border-t-2 border-black border-dashed text-center">
-                      <p className="font-black text-sm uppercase tracking-widest text-[#FF6B00]">Total: {members.length} Squad Members</p>
-                    </div>
-                  </div>
-                </div>
+                            <Plus size={20} strokeWidth={3} />
+                          </button>
+                        </div>
 
-                <div className="lg:col-span-8 lg:row-span-2">
-                  <HeatmapPicker />
-                </div>
-                <div className="lg:col-span-4 lg:row-span-1">
-                  <LocationShowcase />
-                </div>
-                <div className="lg:col-span-4 lg:row-span-1">
-                   <BudgetTracker />
-                </div>
-                <div className="lg:col-span-4 lg:row-span-1">
-                  <MusicWidget />
-                </div>
-                <div className="lg:col-span-4 lg:row-span-1">
-                  <AddYourVibe />
-                </div>
-                <div className="lg:col-span-8 lg:row-span-1 flex flex-col md:flex-row items-center justify-between gap-8 bg-black/5 border-4 border-black border-dashed rounded-3xl p-8 mt-4">
-                   <div className="flex-1">
-                      <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-2">Ready to party?</h3>
-                      <p className="font-bold text-gray-600">Đừng để Thi phải đợi, chốt kèo lịch phát một nào anh em ơi!</p>
-                   </div>
-                   <div className="flex flex-col items-center gap-4">
-                     <BirthdayConfetti />
-                     <motion.button 
-                      whileHover={{ scale: 1.05, y: -4 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="flex items-center gap-3 px-10 py-5 bg-black text-white rounded-2xl font-black text-xl border-4 border-[#00FF00] shadow-[8px_8px_0px_0px_rgba(0,255,0,0.5)] hover:shadow-none transition-all"
-                    >
-                      <Send size={24} /> GỬI LỜI MỜI .EXE
-                    </motion.button>
-                   </div>
-                </div>
-              </div>
+                        <div className="flex-1 space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+                          <AnimatePresence initial={false}>
+                            {members.map((member) => (
+                              <motion.div 
+                                key={member.id}
+                                initial={{ x: -20, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                exit={{ x: 20, opacity: 0 }}
+                                className="group flex items-center justify-between p-3 bg-gray-50 border-2 border-black rounded-xl hover:bg-[#FFF0E0] transition-colors"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-black text-xs">
+                                    {member.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="font-black uppercase tracking-tight text-sm">{member.name}</span>
+                                </div>
+                                <button 
+                                  onClick={() => removeMember(member.id)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        </div>
+                        
+                        <div className="mt-6 pt-4 border-t-2 border-black border-dashed text-center">
+                          <p className="font-black text-sm uppercase tracking-widest text-[#FF6B00]">Total: {members.length} Squad Members</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-8 lg:row-span-2">
+                      <HeatmapPicker />
+                    </div>
+                    <div className="lg:col-span-4 lg:row-span-1">
+                      <LocationShowcase />
+                    </div>
+                    <div className="lg:col-span-4 lg:row-span-1">
+                       <BudgetTracker currentBudget={budget} onAdd={(amt) => setBudget(prev => prev + amt)} />
+                    </div>
+                    <div className="lg:col-span-4 lg:row-span-1">
+                      <MusicWidget />
+                    </div>
+                    <div className="lg:col-span-4 lg:row-span-1">
+                      <AddYourVibe />
+                    </div>
+                    <div className="lg:col-span-8 lg:row-span-1 flex flex-col md:flex-row items-center justify-between gap-8 bg-black/5 border-4 border-black border-dashed rounded-3xl p-8 mt-4">
+                       <div className="flex-1">
+                          <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-2">Ready to party?</h3>
+                          <p className="font-bold text-gray-600">Đừng để Thi phải đợi, chốt kèo lịch phát một nào anh em ơi!</p>
+                       </div>
+                       <div className="flex flex-col items-center gap-4">
+                         <BirthdayConfetti />
+                         <motion.button 
+                          whileHover={{ scale: 1.05, y: -4 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="flex items-center gap-3 px-10 py-5 bg-black text-white rounded-2xl font-black text-xl border-4 border-[#00FF00] shadow-[8px_8px_0px_0px_rgba(0,255,0,0.5)] hover:shadow-none transition-all"
+                        >
+                          <Send size={24} /> GỬI LỜI MỜI .EXE
+                        </motion.button>
+                       </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="thi-dashboard"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <ThiDashboard 
+                      members={members} 
+                      budget={budget} 
+                      targetBudget={5000000} 
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </main>
 
             {/* Footer */}
